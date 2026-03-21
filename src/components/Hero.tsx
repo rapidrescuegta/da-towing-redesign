@@ -1,11 +1,103 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { Phone, ArrowDown, ShieldCheck, Clock, Star } from "@phosphor-icons/react";
 
-function AnimatedCounter({ target, suffix = "", duration = 2000 }: { target: number; suffix?: string; duration?: number }) {
+// All photos from the original D&A Towing site
+const heroPhotos = [
+  "/images/equipment-towing.jpg",
+  "/images/services1.jpg",
+  "/images/heavy-duty.jpg",
+  "/images/services3.jpg",
+  "/images/rv-towing.jpg",
+  "/images/services5.jpg",
+  "/images/ser1.jpg",
+  "/images/services4.jpg",
+  "/images/flatbed.jpg",
+  "/images/services7.jpg",
+  "/images/ser3.jpg",
+  "/images/about.jpg",
+  "/images/services2.jpg",
+  "/images/light-duty.jpg",
+  "/images/ser2.jpg",
+  "/images/services8.jpg",
+  "/images/accident.jpg",
+  "/images/services9.jpg",
+  "/images/auto-hauling.jpg",
+  "/images/services6.jpg",
+  "/images/ser5.jpg",
+  "/images/services11.jpg",
+  "/images/ser7.jpg",
+  "/images/services10.jpg",
+  "/images/ser8.jpg",
+  "/images/ser6.jpg",
+  "/images/ser11.jpg",
+  "/images/feature.jpg",
+];
+
+// Magazine page-flip animation variants
+const pageFlipVariants = {
+  enter: {
+    rotateY: -90,
+    x: "5%",
+    opacity: 0,
+    scale: 1.05,
+    transformOrigin: "left center" as const,
+  },
+  center: {
+    rotateY: 0,
+    x: "0%",
+    opacity: 1,
+    scale: 1,
+    transformOrigin: "left center" as const,
+    transition: {
+      rotateY: { duration: 1, ease: [0.25, 0.1, 0.25, 1] as const },
+      x: { duration: 0.8, ease: [0, 0, 0.2, 1] as const },
+      opacity: { duration: 0.5 },
+      scale: { duration: 1, ease: [0, 0, 0.2, 1] as const },
+    },
+  },
+  exit: {
+    rotateY: 90,
+    x: "-5%",
+    opacity: 0,
+    scale: 0.95,
+    transformOrigin: "right center" as const,
+    transition: {
+      rotateY: { duration: 0.9, ease: [0.55, 0, 0.45, 1] as const },
+      x: { duration: 0.7, ease: [0.4, 0, 1, 1] as const },
+      opacity: { duration: 0.6, delay: 0.2 },
+      scale: { duration: 0.8, ease: [0.4, 0, 1, 1] as const },
+    },
+  },
+};
+
+// Page shadow that follows the flip
+const pageShadowVariants = {
+  enter: { opacity: 0, x: "-100%" },
+  center: {
+    opacity: 0,
+    x: "0%",
+    transition: { duration: 0.8 },
+  },
+  exit: {
+    opacity: [0, 0.6, 0],
+    x: ["-20%", "40%", "100%"],
+    transition: { duration: 0.9, ease: [0.42, 0, 0.58, 1] as const },
+  },
+};
+
+function AnimatedCounter({
+  target,
+  suffix = "",
+  duration = 2000,
+}: {
+  target: number;
+  suffix?: string;
+  duration?: number;
+}) {
   const [count, setCount] = useState(0);
   const [started, setStarted] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
@@ -13,9 +105,7 @@ function AnimatedCounter({ target, suffix = "", duration = 2000 }: { target: num
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !started) {
-          setStarted(true);
-        }
+        if (entry.isIntersecting && !started) setStarted(true);
       },
       { threshold: 0.5 }
     );
@@ -41,11 +131,19 @@ function AnimatedCounter({ target, suffix = "", duration = 2000 }: { target: num
     return () => clearInterval(timer);
   }, [started, target, duration]);
 
-  return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
+  return (
+    <span ref={ref}>
+      {count.toLocaleString()}
+      {suffix}
+    </span>
+  );
 }
 
 export default function Hero() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [currentPhoto, setCurrentPhoto] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end start"],
@@ -54,44 +152,96 @@ export default function Hero() {
   const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
   const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
+  // Auto-advance photos
+  const nextPhoto = useCallback(() => {
+    setCurrentPhoto((prev) => (prev + 1) % heroPhotos.length);
+  }, []);
+
+  useEffect(() => {
+    if (isPaused) return;
+    const timer = setInterval(nextPhoto, 4000);
+    return () => clearInterval(timer);
+  }, [nextPhoto, isPaused]);
+
+  // Pause when tab not visible
+  useEffect(() => {
+    const handleVisibility = () => setIsPaused(document.hidden);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
   return (
     <section
       id="hero"
       ref={containerRef}
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
     >
-      {/* Animated background */}
-      <motion.div style={{ y: bgY }} className="absolute inset-0 -top-20">
-        {/* Background photo */}
-        <Image
-          src="/images/feature.jpg"
-          alt=""
-          fill
-          className="object-cover opacity-20"
-          priority
-          sizes="100vw"
-        />
-        {/* Dark gradient base */}
-        <div className="absolute inset-0 bg-gradient-to-br from-dark/90 via-dark-800/85 to-midnight/90" />
+      {/* === MAGAZINE PAGE-FLIP PHOTO BACKDROP === */}
+      <motion.div
+        style={{ y: bgY, perspective: "1200px" }}
+        className="absolute inset-0 -top-20"
+      >
+        <AnimatePresence mode="popLayout">
+          <motion.div
+            key={currentPhoto}
+            variants={pageFlipVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            className="absolute inset-0"
+            style={{ transformStyle: "preserve-3d", backfaceVisibility: "hidden" }}
+          >
+            <Image
+              src={heroPhotos[currentPhoto]}
+              alt=""
+              fill
+              className="object-cover"
+              priority={currentPhoto < 2}
+              sizes="100vw"
+              quality={85}
+            />
+            {/* Page fold highlight — simulates light catching the page as it turns */}
+            <motion.div
+              variants={pageShadowVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none"
+            />
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Dark overlay — keeps text readable over any photo */}
+        <div className="absolute inset-0 bg-gradient-to-br from-dark/85 via-dark-800/80 to-midnight/85 z-[2]" />
+
         {/* Radial glow effects */}
-        <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-gold/5 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-gold-dark/8 rounded-full blur-[100px]" />
+        <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-gold/5 rounded-full blur-[120px] z-[3]" />
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-gold-dark/8 rounded-full blur-[100px] z-[3]" />
+
         {/* Grid pattern */}
         <div
-          className="absolute inset-0 opacity-[0.03]"
+          className="absolute inset-0 opacity-[0.03] z-[3]"
           style={{
             backgroundImage: `linear-gradient(rgba(212,160,23,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(212,160,23,0.3) 1px, transparent 1px)`,
             backgroundSize: "60px 60px",
           }}
         />
+
         {/* Diagonal accent lines */}
-        <svg className="absolute inset-0 w-full h-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          className="absolute inset-0 w-full h-full opacity-[0.04] z-[3]"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <line x1="0" y1="100%" x2="60%" y2="0" stroke="#D4A017" strokeWidth="1" />
           <line x1="40%" y1="100%" x2="100%" y2="0" stroke="#D4A017" strokeWidth="1" />
         </svg>
       </motion.div>
 
-      <motion.div style={{ opacity }} className="relative z-10 max-w-7xl mx-auto px-6 pt-32 pb-20 w-full">
+      {/* === CONTENT === */}
+      <motion.div
+        style={{ opacity }}
+        className="relative z-10 max-w-7xl mx-auto px-6 pt-32 pb-20 w-full"
+      >
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           {/* Left: Text content */}
           <div>
@@ -185,15 +335,16 @@ export default function Hero() {
               <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-gold/10 to-transparent rounded-tr-3xl rounded-bl-[80px]" />
 
               <h3 className="text-xl font-bold mb-8 text-white">
-                Why Barrie Calls <span className="text-gradient-gold">D&amp;A Towing</span>
+                Why Barrie Calls{" "}
+                <span className="text-gradient-gold">D&amp;A Towing</span>
               </h3>
 
               <div className="grid grid-cols-2 gap-6">
                 {[
-                  { number: 5000, suffix: "+", label: "Vehicles Towed", icon: "truck" },
-                  { number: 15, suffix: "+", label: "Years Experience", icon: "calendar" },
-                  { number: 99, suffix: "%", label: "Customer Satisfaction", icon: "star" },
-                  { number: 30, suffix: " min", label: "Avg. Response Time", icon: "clock" },
+                  { number: 5000, suffix: "+", label: "Vehicles Towed" },
+                  { number: 15, suffix: "+", label: "Years Experience" },
+                  { number: 99, suffix: "%", label: "Customer Satisfaction" },
+                  { number: 30, suffix: " min", label: "Avg. Response Time" },
                 ].map((stat, i) => (
                   <motion.div
                     key={stat.label}
@@ -205,31 +356,54 @@ export default function Hero() {
                     <div className="text-2xl sm:text-3xl font-black text-gradient-gold mb-1">
                       <AnimatedCounter target={stat.number} suffix={stat.suffix} />
                     </div>
-                    <div className="text-xs sm:text-sm text-steel">{stat.label}</div>
+                    <div className="text-xs sm:text-sm text-steel">
+                      {stat.label}
+                    </div>
                   </motion.div>
                 ))}
               </div>
 
-              {/* Associated companies */}
+              {/* Photo counter indicator */}
               <div className="mt-8 pt-6 border-t border-dark-600/30">
-                <p className="text-xs text-steel mb-3 uppercase tracking-wider">Also serving you through</p>
+                <p className="text-xs text-steel mb-3 uppercase tracking-wider">
+                  Also serving you through
+                </p>
                 <div className="flex flex-wrap gap-3 text-xs text-steel-light">
-                  {["Simcoe Muskoka Rentals", "D&A Auto Hauler", "D&A Truck & Auto Repair", "D&A Float Services"].map(
-                    (company) => (
-                      <span
-                        key={company}
-                        className="px-3 py-1.5 rounded-lg bg-dark-700/60 border border-dark-600/30"
-                      >
-                        {company}
-                      </span>
-                    )
-                  )}
+                  {[
+                    "Simcoe Muskoka Rentals",
+                    "D&A Auto Hauler",
+                    "D&A Truck & Auto Repair",
+                    "D&A Float Services",
+                  ].map((company) => (
+                    <span
+                      key={company}
+                      className="px-3 py-1.5 rounded-lg bg-dark-700/60 border border-dark-600/30"
+                    >
+                      {company}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
           </motion.div>
         </div>
       </motion.div>
+
+      {/* Photo progress bar */}
+      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1">
+        {heroPhotos.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setCurrentPhoto(i)}
+            className={`h-0.5 rounded-full transition-all duration-500 ${
+              i === currentPhoto
+                ? "w-6 bg-gold"
+                : "w-1.5 bg-steel/20 hover:bg-steel/40"
+            }`}
+            aria-label={`Show photo ${i + 1}`}
+          />
+        ))}
+      </div>
 
       {/* Scroll indicator */}
       <motion.div
