@@ -37,58 +37,6 @@ const heroPhotos = [
   "/images/feature.jpg",
 ];
 
-// Magazine page-flip animation variants
-const pageFlipVariants = {
-  enter: {
-    rotateY: -90,
-    x: "5%",
-    opacity: 0,
-    scale: 1.05,
-    transformOrigin: "left center" as const,
-  },
-  center: {
-    rotateY: 0,
-    x: "0%",
-    opacity: 1,
-    scale: 1,
-    transformOrigin: "left center" as const,
-    transition: {
-      rotateY: { duration: 1, ease: [0.25, 0.1, 0.25, 1] as const },
-      x: { duration: 0.8, ease: [0, 0, 0.2, 1] as const },
-      opacity: { duration: 0.5 },
-      scale: { duration: 1, ease: [0, 0, 0.2, 1] as const },
-    },
-  },
-  exit: {
-    rotateY: 90,
-    x: "-5%",
-    opacity: 0,
-    scale: 0.95,
-    transformOrigin: "right center" as const,
-    transition: {
-      rotateY: { duration: 0.9, ease: [0.55, 0, 0.45, 1] as const },
-      x: { duration: 0.7, ease: [0.4, 0, 1, 1] as const },
-      opacity: { duration: 0.6, delay: 0.2 },
-      scale: { duration: 0.8, ease: [0.4, 0, 1, 1] as const },
-    },
-  },
-};
-
-// Page shadow that follows the flip
-const pageShadowVariants = {
-  enter: { opacity: 0, x: "-100%" },
-  center: {
-    opacity: 0,
-    x: "0%",
-    transition: { duration: 0.8 },
-  },
-  exit: {
-    opacity: [0, 0.6, 0],
-    x: ["-20%", "40%", "100%"],
-    transition: { duration: 0.9, ease: [0.42, 0, 0.58, 1] as const },
-  },
-};
-
 function AnimatedCounter({
   target,
   suffix = "",
@@ -139,10 +87,180 @@ function AnimatedCounter({
   );
 }
 
+/**
+ * Corner-peel page curl effect.
+ * The current photo peels from the bottom-right corner, curling up and away
+ * diagonally to reveal the next photo underneath.
+ */
+function PageCurlSlideshow() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [nextIndex, setNextIndex] = useState(1);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [peelProgress, setPeelProgress] = useState(0);
+  const animRef = useRef<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startPeel = useCallback(() => {
+    if (isAnimating) return;
+    setIsAnimating(true);
+    setNextIndex((currentIndex + 1) % heroPhotos.length);
+
+    const startTime = performance.now();
+    const duration = 1800; // 1.8 seconds for the peel
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      // Ease-in-out curve for natural feel
+      const eased = t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+      setPeelProgress(eased);
+
+      if (t < 1) {
+        animRef.current = requestAnimationFrame(animate);
+      } else {
+        // Peel complete — swap photos
+        setCurrentIndex((currentIndex + 1) % heroPhotos.length);
+        setPeelProgress(0);
+        setIsAnimating(false);
+      }
+    };
+
+    animRef.current = requestAnimationFrame(animate);
+  }, [currentIndex, isAnimating]);
+
+  // Auto-advance
+  useEffect(() => {
+    timerRef.current = setTimeout(startPeel, 4500);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, [startPeel]);
+
+  // Pause on tab hidden
+  useEffect(() => {
+    const handler = () => {
+      if (document.hidden) {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        if (animRef.current) cancelAnimationFrame(animRef.current);
+      }
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+
+  // Calculate the peel clip-path
+  // The peel originates from bottom-right corner and expands diagonally
+  // As peelProgress goes 0→1, the diagonal line moves from bottom-right to top-left
+  const peelSize = peelProgress * 200; // percentage overshoot for full coverage
+
+  // The clip-path for the current (top) photo — shrinks as the page peels away
+  // Diagonal from bottom-right corner expanding toward top-left
+  const cx = 100 - peelSize;
+  const cy = 100 - peelSize;
+
+  const currentClip = peelProgress === 0
+    ? "none"
+    : `polygon(0% 0%, 100% 0%, 100% ${Math.max(0, cy)}%, ${Math.max(0, cx)}% 100%, 0% 100%)`;
+
+  // The "curled" underside of the peeled page — shows as a lighter strip
+  // along the diagonal fold line
+  const foldAngle = -45; // diagonal
+  const foldX = 100 - peelProgress * 120;
+  const foldY = 100 - peelProgress * 120;
+  const curlWidth = 15 + peelProgress * 25;
+
+  return (
+    <>
+      {/* Bottom layer: NEXT photo (revealed as current peels) */}
+      <div className="absolute inset-0">
+        <Image
+          src={heroPhotos[nextIndex]}
+          alt=""
+          fill
+          className="object-cover"
+          sizes="100vw"
+          quality={80}
+        />
+      </div>
+
+      {/* Top layer: CURRENT photo (peels away from bottom-right corner) */}
+      <div
+        className="absolute inset-0 transition-none"
+        style={{
+          clipPath: currentClip,
+        }}
+      >
+        <Image
+          src={heroPhotos[currentIndex]}
+          alt=""
+          fill
+          className="object-cover"
+          priority
+          sizes="100vw"
+          quality={85}
+        />
+      </div>
+
+      {/* Curl shadow — the shadow cast by the peeling corner */}
+      {isAnimating && peelProgress > 0.02 && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `linear-gradient(${foldAngle}deg,
+              transparent ${Math.max(0, 100 - peelSize - curlWidth - 5)}%,
+              rgba(0,0,0,0.3) ${Math.max(0, 100 - peelSize - curlWidth)}%,
+              rgba(0,0,0,0.08) ${Math.max(0, 100 - peelSize - 2)}%,
+              transparent ${Math.max(0, 100 - peelSize)}%)`,
+            opacity: Math.min(1, peelProgress * 3),
+          }}
+        />
+      )}
+
+      {/* Curl highlight — the light catching the curled paper edge */}
+      {isAnimating && peelProgress > 0.02 && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `linear-gradient(${foldAngle}deg,
+              transparent ${Math.max(0, 100 - peelSize - 3)}%,
+              rgba(255,255,255,0.15) ${Math.max(0, 100 - peelSize - 1)}%,
+              rgba(212,160,23,0.08) ${Math.max(0, 100 - peelSize)}%,
+              transparent ${Math.max(0, 100 - peelSize + 2)}%)`,
+            opacity: Math.min(1, peelProgress * 4) * (1 - Math.max(0, peelProgress - 0.8) * 5),
+          }}
+        />
+      )}
+
+      {/* The curled corner — the actual folded-back triangle with page underside */}
+      {isAnimating && peelProgress > 0.01 && peelProgress < 0.95 && (
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            bottom: 0,
+            right: 0,
+            width: `${Math.min(60, peelSize * 0.7)}%`,
+            height: `${Math.min(60, peelSize * 0.7)}%`,
+            clipPath: `polygon(100% ${Math.max(0, 100 - peelProgress * 130)}%, ${Math.max(0, 100 - peelProgress * 130)}% 100%, 100% 100%)`,
+            background: `linear-gradient(${foldAngle}deg,
+              rgba(200,180,140,0.25) 0%,
+              rgba(245,200,66,0.08) 40%,
+              rgba(180,160,120,0.15) 100%)`,
+            transform: `rotate(${peelProgress * -2}deg)`,
+            transformOrigin: "bottom right",
+            filter: "blur(0.5px)",
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 export default function Hero() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [currentPhoto, setCurrentPhoto] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -152,66 +270,21 @@ export default function Hero() {
   const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
   const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
-  // Auto-advance photos
-  const nextPhoto = useCallback(() => {
-    setCurrentPhoto((prev) => (prev + 1) % heroPhotos.length);
-  }, []);
-
-  useEffect(() => {
-    if (isPaused) return;
-    const timer = setInterval(nextPhoto, 4000);
-    return () => clearInterval(timer);
-  }, [nextPhoto, isPaused]);
-
-  // Pause when tab not visible
-  useEffect(() => {
-    const handleVisibility = () => setIsPaused(document.hidden);
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
-
   return (
     <section
       id="hero"
       ref={containerRef}
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
     >
-      {/* === MAGAZINE PAGE-FLIP PHOTO BACKDROP === */}
+      {/* === PAGE-CURL PHOTO BACKDROP === */}
       <motion.div
-        style={{ y: bgY, perspective: "1200px" }}
+        style={{ y: bgY }}
         className="absolute inset-0 -top-20"
       >
-        <AnimatePresence mode="popLayout">
-          <motion.div
-            key={currentPhoto}
-            variants={pageFlipVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            className="absolute inset-0"
-            style={{ transformStyle: "preserve-3d", backfaceVisibility: "hidden" }}
-          >
-            <Image
-              src={heroPhotos[currentPhoto]}
-              alt=""
-              fill
-              className="object-cover"
-              priority={currentPhoto < 2}
-              sizes="100vw"
-              quality={85}
-            />
-            {/* Page fold highlight — simulates light catching the page as it turns */}
-            <motion.div
-              variants={pageShadowVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none"
-            />
-          </motion.div>
-        </AnimatePresence>
+        {/* Photo slideshow with corner-peel effect */}
+        <PageCurlSlideshow />
 
-        {/* Dark overlay — keeps text readable over any photo */}
+        {/* Dark overlay — keeps text readable */}
         <div className="absolute inset-0 bg-gradient-to-br from-dark/85 via-dark-800/80 to-midnight/85 z-[2]" />
 
         {/* Radial glow effects */}
@@ -363,7 +436,7 @@ export default function Hero() {
                 ))}
               </div>
 
-              {/* Photo counter indicator */}
+              {/* Associated companies */}
               <div className="mt-8 pt-6 border-t border-dark-600/30">
                 <p className="text-xs text-steel mb-3 uppercase tracking-wider">
                   Also serving you through
@@ -388,22 +461,6 @@ export default function Hero() {
           </motion.div>
         </div>
       </motion.div>
-
-      {/* Photo progress bar */}
-      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1">
-        {heroPhotos.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setCurrentPhoto(i)}
-            className={`h-0.5 rounded-full transition-all duration-500 ${
-              i === currentPhoto
-                ? "w-6 bg-gold"
-                : "w-1.5 bg-steel/20 hover:bg-steel/40"
-            }`}
-            aria-label={`Show photo ${i + 1}`}
-          />
-        ))}
-      </div>
 
       {/* Scroll indicator */}
       <motion.div
