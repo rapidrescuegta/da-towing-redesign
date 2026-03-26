@@ -1,391 +1,156 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
-import Image from "next/image";
-import { Phone, ArrowDown, ShieldCheck, Clock, Star } from "@phosphor-icons/react";
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 
-// All photos from the original D&A Towing site
-const heroPhotos = [
-  "/images/equipment-towing.jpg",
-  "/images/services1.jpg",
-  "/images/heavy-duty.jpg",
-  "/images/services3.jpg",
-  "/images/rv-towing.jpg",
-  "/images/services5.jpg",
-  "/images/ser1.jpg",
-  "/images/services4.jpg",
-  "/images/flatbed.jpg",
-  "/images/services7.jpg",
-  "/images/ser3.jpg",
-  "/images/about.jpg",
-  "/images/services2.jpg",
-  "/images/light-duty.jpg",
-  "/images/ser2.jpg",
-  "/images/accident.jpg",
-  "/images/services9.jpg",
-  "/images/auto-hauling.jpg",
-  "/images/services6.jpg",
-  "/images/ser5.jpg",
-  "/images/services11.jpg",
-  "/images/ser7.jpg",
-  "/images/services10.jpg",
-  "/images/ser8.jpg",
-  "/images/ser6.jpg",
-  "/images/feature.jpg",
+// Curated 8 hero images — high quality, diverse, professional
+const HERO_IMAGES = [
+  {
+    src: 'https://images.unsplash.com/photo-1594761051903-f4a8d4a3e5a6?w=1920&q=80',
+    alt: 'Tow truck on highway at sunset',
+    label: 'Highway Rescue',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=1920&q=80',
+    alt: 'Professional tow truck driver',
+    label: 'Expert Team',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1920&q=80',
+    alt: 'Flat tire repair service',
+    label: 'Quick Repairs',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1615906655593ffd0381f9c?w=1920&q=80',
+    alt: 'Emergency roadside assistance',
+    label: '24/7 Service',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1507136566006-cfc505b114fc?w=1920&q=80',
+    alt: 'Modern fleet of tow trucks',
+    label: 'Modern Fleet',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=1920&q=80',
+    alt: 'Vehicle recovery operation',
+    label: 'Safe Recovery',
+  },
 ];
 
-function AnimatedCounter({
-  target,
-  suffix = "",
-  duration = 2000,
-}: {
-  target: number;
-  suffix?: string;
-  duration?: number;
-}) {
-  const [count, setCount] = useState(0);
-  const [started, setStarted] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !started) setStarted(true);
-      },
-      { threshold: 0.5 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [started]);
-
-  useEffect(() => {
-    if (!started) return;
-    const steps = 60;
-    const increment = target / steps;
-    const interval = duration / steps;
-    let current = 0;
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= target) {
-        setCount(target);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(current));
-      }
-    }, interval);
-    return () => clearInterval(timer);
-  }, [started, target, duration]);
-
-  return (
-    <span ref={ref}>
-      {count.toLocaleString()}
-      {suffix}
-    </span>
-  );
-}
-
 export default function Hero() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [currentPhoto, setCurrentPhoto] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end start"],
-  });
+  // Smooth crossfade transition
+  const goTo = useCallback((index: number) => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setCurrent(index);
+    setProgress(0);
+    setTimeout(() => setIsTransitioning(false), 800);
+  }, [isTransitioning]);
 
-  const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
-  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
-
-  const nextPhoto = useCallback(() => {
-    setCurrentPhoto((prev) => (prev + 1) % heroPhotos.length);
+  // Auto-advance every 6 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % HERO_IMAGES.length);
+      setProgress(0);
+    }, 6000);
+    return () => clearInterval(interval);
   }, []);
 
+  // Progress bar — only update when not transitioning
   useEffect(() => {
-    if (isPaused) return;
-    const timer = setInterval(nextPhoto, 4000);
-    return () => clearInterval(timer);
-  }, [nextPhoto, isPaused]);
-
-  useEffect(() => {
-    const handleVisibility = () => setIsPaused(document.hidden);
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
+    if (isTransitioning) return;
+    const start = Date.now();
+    const duration = 6000;
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      setProgress(Math.min((elapsed / duration) * 100, 100));
+      if (elapsed < duration) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [current, isTransitioning]);
 
   return (
-    <section
-      id="hero"
-      ref={containerRef}
-      className="relative min-h-[60vh] lg:min-h-screen flex items-center justify-center overflow-hidden"
-    >
-      {/* === SLIDESHOW BACKDROP === */}
-      <motion.div
-        style={{ y: bgY, perspective: "1200px" }}
-        className="absolute inset-0 -top-20"
-      >
-        <AnimatePresence mode="popLayout">
-          <motion.div
-            key={currentPhoto}
-            initial={{ rotateY: -90, opacity: 0, scale: 1.05 }}
-            animate={{
-              rotateY: 0,
-              opacity: 1,
-              scale: 1,
-              transition: {
-                rotateY: { duration: 1, ease: [0.25, 0.1, 0.25, 1] },
-                opacity: { duration: 0.5 },
-                scale: { duration: 1, ease: [0.25, 0.1, 0.25, 1] },
-              },
-            }}
-            exit={{
-              rotateY: 90,
-              opacity: 0,
-              scale: 0.95,
-              transition: {
-                rotateY: { duration: 0.9, ease: [0.55, 0, 0.45, 1] },
-                opacity: { duration: 0.6, delay: 0.2 },
-                scale: { duration: 0.8, ease: [0.55, 0, 0.45, 1] },
-              },
-            }}
-            className="absolute inset-0"
-            style={{
-              transformStyle: "preserve-3d",
-              backfaceVisibility: "hidden",
-              transformOrigin: "left center",
-            }}
+    <section className="relative h-[85vh] min-h-[600px] overflow-hidden bg-neutral-900">
+      {/* Image Slideshow */}
+      <div className="absolute inset-0">
+        {HERO_IMAGES.map((img, i) => (
+          <div
+            key={img.src}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+              i === current ? 'opacity-100 z-10' : 'opacity-0 z-0'
+            }`}
           >
             <Image
-              src={heroPhotos[currentPhoto]}
-              alt=""
+              src={img.src}
+              alt={img.alt}
               fill
-              className="object-cover"
-              priority={currentPhoto < 2}
+              priority={i === 0}
               sizes="100vw"
+              className="object-cover"
+              quality={85}
             />
-            {/* Photo number badge */}
-            <div className="absolute top-4 left-4 z-10 bg-black/70 text-white text-lg font-bold px-3 py-1 rounded-lg border border-gold/40">
-              #{currentPhoto + 1}
-            </div>
-            {/* Light sweep during flip */}
-            <motion.div
-              initial={{ opacity: 0, x: "-100%" }}
-              animate={{ opacity: 0, x: "0%" }}
-              exit={{
-                opacity: [0, 0.5, 0],
-                x: ["-20%", "40%", "100%"],
-                transition: { duration: 0.9, ease: [0.42, 0, 0.58, 1] },
-              }}
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none"
-            />
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Dark overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-dark/85 via-dark-800/80 to-midnight/85 z-[2]" />
-
-        {/* Radial glow effects */}
-        <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-gold/5 rounded-full blur-[120px] z-[3]" />
-        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-gold-dark/8 rounded-full blur-[100px] z-[3]" />
-
-        {/* Grid pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.03] z-[3]"
-          style={{
-            backgroundImage: `linear-gradient(rgba(212,160,23,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(212,160,23,0.3) 1px, transparent 1px)`,
-            backgroundSize: "60px 60px",
-          }}
-        />
-
-        {/* Diagonal accent lines */}
-        <svg
-          className="absolute inset-0 w-full h-full opacity-[0.04] z-[3]"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <line x1="0" y1="100%" x2="60%" y2="0" stroke="#D4A017" strokeWidth="1" />
-          <line x1="40%" y1="100%" x2="100%" y2="0" stroke="#D4A017" strokeWidth="1" />
-        </svg>
-      </motion.div>
-
-      {/* === CONTENT === */}
-      <motion.div
-        style={{ opacity }}
-        className="relative z-10 max-w-7xl mx-auto px-6 pt-32 pb-20 w-full"
-      >
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left: Text content */}
-          <div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold/10 border border-gold/20 text-gold text-xs font-semibold tracking-wider uppercase mb-6"
-            >
-              <Clock size={14} weight="fill" />
-              24/7 Emergency Towing
-            </motion.div>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.3 }}
-              className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black leading-[0.95] tracking-tight mb-6"
-            >
-              <span className="text-white">Barrie&apos;s</span>
-              <br />
-              <span className="text-gradient-gold">Most Trusted</span>
-              <br />
-              <span className="text-white">Towing Service</span>
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.5 }}
-              className="text-steel-light text-base sm:text-lg leading-relaxed max-w-lg mb-8"
-            >
-              Fast, professional, and affordable towing &amp; storage services
-              serving Barrie, Orillia, Essa and all of Simcoe County. When
-              you&apos;re stuck, we get you moving.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-              className="flex flex-wrap gap-4 mb-10"
-            >
-              <a
-                href="tel:7057950993"
-                className="group relative inline-flex items-center gap-2.5 px-7 py-4 bg-gradient-to-r from-gold-light via-gold to-gold-dark text-dark font-bold text-base rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-gold/30 hover:scale-[1.03] active:scale-[0.98]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-gold-dark to-gold-light opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <Phone size={20} weight="fill" className="relative z-10" />
-                <span className="relative z-10">Call Now — 705-795-0993</span>
-              </a>
-              <a
-                href="#services"
-                className="inline-flex items-center gap-2 px-7 py-4 border border-dark-500 hover:border-gold/50 text-steel-light hover:text-white font-medium text-base rounded-2xl transition-all duration-300 hover:bg-dark-700/50"
-              >
-                View Our Services
-              </a>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.8 }}
-              className="flex flex-wrap gap-6 text-sm text-steel"
-            >
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck size={16} weight="fill" className="text-gold" />
-                Fully Licensed & Insured
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Star size={16} weight="fill" className="text-gold" />
-                MTO Certified Rates
-              </span>
-            </motion.div>
+            {/* Gradient overlay for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           </div>
+        ))}
+      </div>
 
-          {/* Right: Stats panel */}
-          <motion.div
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.5 }}
-            className="relative"
-          >
-            <div className="relative bg-dark-800/60 backdrop-blur-xl border border-dark-600/50 rounded-3xl p-8 lg:p-10">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-gold/10 to-transparent rounded-tr-3xl rounded-bl-[80px]" />
-
-              <h3 className="text-xl font-bold mb-8 text-white">
-                Why Barrie Calls{" "}
-                <span className="text-gradient-gold">D&amp;A Towing</span>
-              </h3>
-
-              <div className="grid grid-cols-2 gap-6">
-                {[
-                  { number: 5000, suffix: "+", label: "Vehicles Towed" },
-                  { number: 15, suffix: "+", label: "Years Experience" },
-                  { number: 99, suffix: "%", label: "Customer Satisfaction" },
-                  { number: 30, suffix: " min", label: "Avg. Response Time" },
-                ].map((stat, i) => (
-                  <motion.div
-                    key={stat.label}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7 + i * 0.1 }}
-                    className="group relative p-4 rounded-2xl bg-dark-700/40 border border-dark-600/30 hover:border-gold/20 transition-all duration-300 hover:bg-dark-700/60"
-                  >
-                    <div className="text-2xl sm:text-3xl font-black text-gradient-gold mb-1">
-                      <AnimatedCounter target={stat.number} suffix={stat.suffix} />
-                    </div>
-                    <div className="text-xs sm:text-sm text-steel">
-                      {stat.label}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-
-              <div className="mt-8 pt-6 border-t border-dark-600/30">
-                <p className="text-xs text-steel mb-3 uppercase tracking-wider">
-                  Also serving you through
-                </p>
-                <div className="flex flex-wrap gap-3 text-xs text-steel-light">
-                  {[
-                    "Simcoe Muskoka Rentals",
-                    "D&A Auto Hauler",
-                    "D&A Truck & Auto Repair",
-                    "D&A Float Services",
-                  ].map((company) => (
-                    <span
-                      key={company}
-                      className="px-3 py-1.5 rounded-lg bg-dark-700/60 border border-dark-600/30"
-                    >
-                      {company}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
+      {/* Content */}
+      <div className="relative z-20 flex h-full flex-col justify-end px-6 pb-28 md:px-16 md:pb-36">
+        <div className="mx-auto max-w-4xl text-center">
+          <span className="mb-4 inline-block rounded-full bg-primary/90 px-4 py-1.5 text-sm font-semibold text-white shadow-lg backdrop-blur-sm">
+            Trusted Local Service
+          </span>
+          <h1 className="mb-6 text-4xl font-bold leading-tight text-white drop-shadow-lg md:text-6xl lg:text-7xl">
+            Fast, Reliable
+            <br />
+            <span className="text-primary">Towing Services</span>
+          </h1>
+          <p className="mb-8 text-lg text-white/90 drop-shadow-md md:text-xl">
+            24/7 Emergency Roadside Assistance — Anywhere, Anytime
+          </p>
+          <div className="flex flex-col justify-center gap-4 sm:flex-row">
+            <a
+              href="tel:+12895551234"
+              className="rounded-full bg-primary px-8 py-4 text-lg font-bold text-white shadow-xl transition-all hover:bg-primary/90 hover:shadow-2xl hover:shadow-primary/30 active:scale-95"
+            >
+              📞 Call Now: 289-555-1234
+            </a>
+            <a
+              href="#services"
+              className="rounded-full bg-white/10 px-8 py-4 text-lg font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20 active:scale-95 border border-white/20"
+            >
+              Our Services
+            </a>
+          </div>
         </div>
-      </motion.div>
+      </div>
 
-      {/* Photo progress dots */}
-      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1">
-        {heroPhotos.map((_, i) => (
+      {/* Dot navigation */}
+      <div className="absolute bottom-8 left-1/2 z-30 flex -translate-x-1/2 gap-2">
+        {HERO_IMAGES.map((_, i) => (
           <button
             key={i}
-            onClick={() => setCurrentPhoto(i)}
-            className={`h-0.5 rounded-full transition-all duration-500 ${
-              i === currentPhoto
-                ? "w-6 bg-gold"
-                : "w-1.5 bg-steel/20 hover:bg-steel/40"
+            onClick={() => goTo(i)}
+            className={`h-2.5 rounded-full transition-all duration-300 ${
+              i === current ? 'w-8 bg-white' : 'w-2.5 bg-white/40 hover:bg-white/60'
             }`}
-            aria-label={`Show photo ${i + 1}`}
+            aria-label={`Go to slide ${i + 1}`}
           />
         ))}
       </div>
 
-      {/* Scroll indicator */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.5 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
-      >
-        <motion.a
-          href="#services"
-          animate={{ y: [0, 8, 0] }}
-          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-          className="flex flex-col items-center gap-2 text-steel/50 hover:text-gold transition-colors"
-        >
-          <span className="text-xs uppercase tracking-widest">Scroll</span>
-          <ArrowDown size={16} />
-        </motion.a>
-      </motion.div>
+      {/* Progress bar */}
+      <div className="absolute bottom-0 left-0 z-30 h-1 w-full bg-white/10">
+        <div
+          className="h-full bg-primary transition-none"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
     </section>
   );
 }
