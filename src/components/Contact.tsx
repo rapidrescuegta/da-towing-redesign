@@ -11,6 +11,9 @@ import {
   User,
   ChatText,
   Truck,
+  CheckCircle,
+  WarningCircle,
+  CircleNotch,
 } from "@phosphor-icons/react";
 
 const contactInfo = [
@@ -61,11 +64,37 @@ export default function Contact() {
     service: "",
     message: "",
   });
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string>("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Form submission logic would go here
-    alert("Thank you! We'll get back to you shortly.");
+    if (status === "submitting") return;
+
+    setStatus("submitting");
+    setErrorMsg("");
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          pageUrl: typeof window !== "undefined" ? window.location.href : "",
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Request failed (${res.status})`);
+      }
+
+      setStatus("success");
+      setFormData({ name: "", phone: "", email: "", service: "", message: "" });
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong");
+    }
   };
 
   return (
@@ -320,15 +349,64 @@ export default function Contact() {
 
               <button
                 type="submit"
-                className="group w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-gold-light via-gold to-gold-dark text-dark font-bold text-base rounded-2xl hover:shadow-xl hover:shadow-gold/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                disabled={status === "submitting"}
+                className="group w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-gold-light via-gold to-gold-dark text-dark font-bold text-base rounded-2xl hover:shadow-xl hover:shadow-gold/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
-                <PaperPlaneTilt
-                  size={18}
-                  weight="fill"
-                  className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300"
-                />
-                Send Quote Request
+                {status === "submitting" ? (
+                  <>
+                    <CircleNotch size={18} weight="bold" className="animate-spin" />
+                    Sending…
+                  </>
+                ) : (
+                  <>
+                    <PaperPlaneTilt
+                      size={18}
+                      weight="fill"
+                      className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300"
+                    />
+                    Send Quote Request
+                  </>
+                )}
               </button>
+
+              {status === "success" && (
+                <div
+                  role="status"
+                  className="mt-4 flex items-start gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-200"
+                >
+                  <CheckCircle size={20} weight="fill" className="text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <div className="font-semibold text-emerald-100">Request received.</div>
+                    <div className="text-emerald-200/80">
+                      We&apos;ll be in touch shortly. For emergencies, call{" "}
+                      <a href="tel:7057950993" className="underline font-semibold">
+                        705-795-0993
+                      </a>
+                      .
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {status === "error" && (
+                <div
+                  role="alert"
+                  className="mt-4 flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-200"
+                >
+                  <WarningCircle size={20} weight="fill" className="text-red-400 shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <div className="font-semibold text-red-100">Couldn&apos;t send your request.</div>
+                    <div className="text-red-200/80">
+                      {errorMsg ? `${errorMsg}. ` : "Please try again, or "}
+                      call us directly at{" "}
+                      <a href="tel:7057950993" className="underline font-semibold">
+                        705-795-0993
+                      </a>
+                      .
+                    </div>
+                  </div>
+                </div>
+              )}
             </form>
           </motion.div>
         </div>
