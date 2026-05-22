@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { FeedbackButton } from "@/components/feedback/FeedbackButton";
+import FeedbackButtonClient from "@/components/feedback/FeedbackButtonClient";
 
 export const metadata: Metadata = {
   title: "D&A Towing & Storage | 24/7 Professional Towing in Barrie, Ontario",
@@ -19,7 +19,7 @@ export default function RootLayout({
     <html lang="en" className="antialiased">
       <body className="bg-midnight text-white overflow-x-hidden">
         {children}
-        <FeedbackButton />
+        <FeedbackButtonClient />
       </body>
     </html>
   );
