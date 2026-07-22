@@ -38,15 +38,35 @@ Dark cinematic themed marketing site for D&A Towing.
 
 ### What I learned
 
-_(empty — fill on next self-study tick)_
+- **2026-07-22 — This workstation has NO npm registry access.** `curl
+  registry.npmjs.org` and `npm view`/`npm install` time out, even with the Bash
+  sandbox disabled. Any task that needs to fetch/change a package version cannot
+  be completed here — it must run where the registry is reachable (or let
+  Railway's Docker build do the install). Don't burn time retrying installs.
+- **2026-07-22 — `next build` on this box is too slow to reach prerender** (>6
+  min still compiling, never finishing). Can't verify a build-fix locally here.
+- **Hotmail/Outlook drafts = Microsoft Graph via the Osminog token gateway, NOT
+  Playwright.** `giusepperacco@hotmail.com` is a connected global login; get a
+  token from `localhost:3001/api/internal/email/token?account=...` and use Graph
+  (`/me/mailFolders/drafts/messages`, `/attachments`). Swapping a draft
+  attachment = DELETE old attachment id + POST new fileAttachment (base64). This
+  is what fixed the "wedged Playwright browser" on the Dennis/Magnetawan draft.
 
 ### Patterns that worked
 
-_(empty)_
+- Draft attachment swap via Graph: list attachments → DELETE stale id (204) →
+  POST base64 fileAttachment (201) → re-list to verify final set. Reliable,
+  headless, no browser.
 
 ### Patterns that failed
 
-_(empty)_
+- **Next 16.x prerender crash is upstream, not fixable in our code.** Custom
+  `global-error.tsx` + `not-found.tsx` + `ssr:false` dynamic FeedbackButton all
+  present, none fix `useContext`-null in `useUntrackedPathname` on synthetic
+  `/_global-error` + `/_not-found`. Chosen remedy = downgrade to Next 15.x
+  (see DECISIONS.md). Stop trying to patch it in-repo on 16.x.
+- Playwright browser sign-in for the hotmail box kept wedging — abandoned in
+  favour of the Graph gateway (above).
 
 ### Tools I wish I had
 
