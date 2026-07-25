@@ -1,6 +1,40 @@
 # D&A Towing Site — Locked Decisions & Durable Findings
 
+## 2026-07-25 — BUILD BLOCKER RESOLVED ✅ (Next 15 downgrade + NODE_ENV fix)
+
+**Status: GREEN.** `next build` exits 0, all 17 static pages generate, no crash.
+The 61-day blocker is cleared. Two things were needed:
+
+1. **Downgrade executed:** `next` pinned `^16.2.6` → `^15.5.21` (React 19 stays),
+   `npm install` regenerated `package-lock.json`. This killed the original
+   `useUntrackedPathname` `useContext`-null crash (that was a Next 16 upstream
+   bug — see below). npm registry was reachable this session (was down on
+   2026-07-22), so the install finally completed on this box.
+
+2. **Real second blocker found — NODE_ENV.** After the downgrade, `next build`
+   still failed, but with a DIFFERENT, misleading error:
+   `<Html> should not be imported outside of pages/_document` while exporting the
+   synthetic `/404` + `/_error` (and `/500`) routes. **This is NOT our code** —
+   no file imports `next/document`; removing `global-error.tsx`, `not-found.tsx`,
+   and `FeedbackButtonClient` did not fix it (the error just hopped to the next
+   error route). **Root cause: the workstation shell has `NODE_ENV=development`,
+   which Next 15 carries into `next build`, making it misfire the `<Html>` guard
+   during static export of the pages-router error routes.** Fix: build with
+   `NODE_ENV=production`. Verified: `NODE_ENV=production npm run build` → EXIT 0,
+   17/17 static pages, 0 errors.
+
+**Hardening shipped:** `Dockerfile` builder stage now pins `ENV NODE_ENV=production`
+before `npm run build` (placed AFTER node_modules copy so devDeps stay available).
+Railway's clean Docker env already defaults to production, but this makes the
+build deterministic and immune to this exact failure class.
+
+**Push:** build is verified green, so the unpushed commits (downgrade + Dockerfile
++ this doc) are safe to push. Railway auto-deploys on push.
+
+---
+
 ## 2026-07-22 — Build blocker (Next 16 prerender crash) status + chosen path
+> SUPERSEDED by the 2026-07-25 entry above — blocker is now resolved. Kept for history.
 
 **Symptom:** `next build` crashes prerendering the synthetic `/_global-error` +
 `/_not-found` routes with `Cannot read properties of null (reading useContext)`

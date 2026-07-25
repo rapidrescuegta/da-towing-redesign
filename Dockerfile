@@ -11,6 +11,11 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Pin production mode for the build. A non-standard/development NODE_ENV makes
+# Next 15 misfire the "<Html> should not be imported outside pages/_document"
+# guard while statically exporting the synthetic /404 + /_error routes. Set here
+# (not in deps) so npm ci above still installs devDependencies needed to build.
+ENV NODE_ENV=production
 RUN npm run build
 
 # Production image, copy all the files and run next
