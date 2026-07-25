@@ -29,7 +29,26 @@ Railway's clean Docker env already defaults to production, but this makes the
 build deterministic and immune to this exact failure class.
 
 **Push:** build is verified green, so the unpushed commits (downgrade + Dockerfile
-+ this doc) are safe to push. Railway auto-deploys on push.
++ this doc) are safe to push. Railway auto-deploys on push. **DONE — pushed as
+`e307cc4` on 2026-07-25.**
+
+**Deploy verification — BLOCKED on Railway auth (Giuseppe action).** After the
+push I could NOT confirm the Railway build/deploy went green from this box:
+- `railway status` → "Unauthorized. Please run `railway login` again."
+- Stored token in `~/.railway/config.json` (`user.token`) is EXPIRED — Railway
+  GraphQL returns "Not Authorized". Re-login needs Giuseppe's interactive
+  browser consent (his account/credential).
+- GitHub deployments API is empty (Railway doesn't post GH deployment statuses).
+- The custom domain `datowingandstorage.com` still serves the OLD site
+  (`server: Apache`, old title) — the Railway redesign is NOT pointed at it yet.
+- Railway service IDs for this project (from `~/.railway/config.json`):
+  project `83a94aae-816b-4c2a-bbb5-6a969bf35817`,
+  env `f3724348-958c-4d4b-8dee-54f9371434ad`,
+  service `4cd8068f-3696-4fd5-b654-33177de3c58c`.
+What IS verified: local `NODE_ENV=production npm run build` is GREEN and uses the
+identical command Railway's Dockerfile runs, so the Docker build should succeed.
+**To close the loop:** Giuseppe runs `railway login` (then I can query deploy
+status), or glances at the Railway dashboard for the da-towing service build log.
 
 ---
 
