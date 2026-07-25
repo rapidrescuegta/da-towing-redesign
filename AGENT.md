@@ -54,6 +54,22 @@ Dark cinematic themed marketing site for D&A Towing.
 
 ### Patterns that worked
 
+- **2026-07-25 — Build blocker RESOLVED. Two layers.** (1) Next 16→15.5.21
+  downgrade killed the `useUntrackedPathname` crash (registry was reachable this
+  session; on 2026-07-22 it was down). (2) The *next* error —
+  `<Html> should not be imported outside of pages/_document` on `/404` `/_error`
+  `/500` — is a phantom masking error: **caused by the shell's
+  `NODE_ENV=development` leaking into `next build`.** No `next/document` import
+  exists in our code; removing global-error/not-found/FeedbackButton just moved
+  the error to the next error route (proof it's not ours). Fix =
+  `NODE_ENV=production npm run build` → EXIT 0, 17/17 pages. Dockerfile builder
+  now pins `ENV NODE_ENV=production`. **Lesson: on this box, ALWAYS build with
+  `NODE_ENV=production`; the profile sets `NODE_ENV=development` and it silently
+  breaks Next 15 error-route static export with a misleading Html error.**
+- To isolate a masked prerender error, bisect by moving suspect route files
+  aside (`global-error.tsx`, `not-found.tsx`) and rebuilding — if the error hops
+  to a different synthetic route, the cause is environmental/Next-internal, not
+  your component.
 - Draft attachment swap via Graph: list attachments → DELETE stale id (204) →
   POST base64 fileAttachment (201) → re-list to verify final set. Reliable,
   headless, no browser.
