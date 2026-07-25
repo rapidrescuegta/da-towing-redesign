@@ -70,6 +70,15 @@ Dark cinematic themed marketing site for D&A Towing.
   aside (`global-error.tsx`, `not-found.tsx`) and rebuilding — if the error hops
   to a different synthetic route, the cause is environmental/Next-internal, not
   your component.
+- **2026-07-25 — Can't verify Railway deploys from this box.** `railway status`
+  = "Unauthorized"; the stored token in `~/.railway/config.json` (`user.token`)
+  is EXPIRED (Railway GraphQL → "Not Authorized"). Re-auth needs Giuseppe's
+  interactive `railway login`. GitHub deployments API is empty (Railway doesn't
+  post GH statuses). `datowingandstorage.com` is the OLD Apache site, NOT the
+  Railway redesign — don't treat it as the deploy target. da-towing Railway IDs:
+  project `83a94aae-816b-4c2a-bbb5-6a969bf35817` / service
+  `4cd8068f-3696-4fd5-b654-33177de3c58c`. Don't burn time retrying the dead
+  token — escalate for re-login instead.
 - Draft attachment swap via Graph: list attachments → DELETE stale id (204) →
   POST base64 fileAttachment (201) → re-list to verify final set. Reliable,
   headless, no browser.
