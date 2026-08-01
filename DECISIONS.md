@@ -1,5 +1,30 @@
 # D&A Towing Site — Locked Decisions & Durable Findings
 
+## 2026-08-01 — Next-step reconciliation (stale sweep cleared)
+
+Cross-project sweep flagged "7 days no commit, 3 open next-steps." Verified the
+actual repo state — two of the three are already DONE and only stale in the
+tracker:
+
+1. **Next 16 prerender crash** → ✅ RESOLVED (Next 15.5.21 downgrade, `3c647e5`).
+2. **Push local commits** → ✅ DONE. Working tree clean, `origin/master` 0 ahead;
+   all commits up to `5747b2c` are pushed. Nothing unpushed.
+3. **Set RESEND_API_KEY + CONTACT_EMAIL_TO in Railway + verified sending domain**
+   → **DEFERRED — Giuseppe-blocked, not an agent task.** Code side is COMPLETE:
+   `src/app/api/contact/route.ts` and `src/app/api/feedback/route.ts` both read
+   the env vars and degrade gracefully (skip email / fall back to
+   `onboarding@resend.dev`) when unset — nothing crashes without them. What
+   remains needs (a) Railway env-var write access (`railway login` — stored token
+   is expired/dead, confirmed 2026-07-25) and (b) a DNS/vendor decision to verify
+   a sending domain at Resend (GoDaddy DNS + Resend domain verify). Both require
+   Giuseppe. No further agent action possible until he re-auths Railway and picks
+   the sending domain. Also still open on his side: `railway login` so the
+   `e307cc4` deploy can be confirmed green (see 2026-07-25 entry).
+
+**Net: no code work outstanding on this box. All open items are Giuseppe-side.**
+
+---
+
 ## 2026-07-25 — BUILD BLOCKER RESOLVED ✅ (Next 15 downgrade + NODE_ENV fix)
 
 **Status: GREEN.** `next build` exits 0, all 17 static pages generate, no crash.
